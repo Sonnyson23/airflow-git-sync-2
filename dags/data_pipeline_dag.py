@@ -5,7 +5,10 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 import requests
+<<<<<<< HEAD
 import boto3
+=======
+>>>>>>> 812715ed98f6a99a4d414151413f743b30878ae6
 import io
 
 default_args = {
@@ -21,7 +24,11 @@ with DAG(
     'store_data_pipeline',
     default_args=default_args,
     description='ETL pipeline for store transactions data',
+<<<<<<< HEAD
     schedule=None,  # Triggered manually or through CI/CD
+=======
+    schedule_interval=None,  # Triggered manually or through CI/CD
+>>>>>>> 812715ed98f6a99a4d414151413f743b30878ae6
     start_date=datetime(2023, 1, 1),
     catchup=False,
     tags=['dataops'],
@@ -30,7 +37,11 @@ with DAG(
     # 1. Create traindb database in Postgres
     create_database = PostgresOperator(
         task_id='create_traindb_database',
+<<<<<<< HEAD
         postgres_conn_id= 'postgresql_conn',
+=======
+        postgres_conn_id= postgresql_conn,
+>>>>>>> 812715ed98f6a99a4d414151413f743b30878ae6
         sql="SELECT 'CREATE DATABASE traindb' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'traindb');",
         autocommit=True
     )
@@ -38,7 +49,11 @@ with DAG(
     # 2. Create table in PostgreSQL
     create_table = PostgresOperator(
         task_id='create_postgres_table',
+<<<<<<< HEAD
         postgres_conn_id= 'postgresql_conn',
+=======
+        postgres_conn_id= postgresql_conn,
+>>>>>>> 812715ed98f6a99a4d414151413f743b30878ae6
         sql="""
         CREATE TABLE IF NOT EXISTS public.clean_data_transactions (
             transaction_id VARCHAR(255),
@@ -55,6 +70,7 @@ with DAG(
     
     # 3. Download data and upload to MinIO
     def download_and_upload_to_minio():
+<<<<<<< HEAD
         # Download data
         url = "https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty_store_transactions.csv"
         response = requests.get(url)
@@ -81,6 +97,27 @@ with DAG(
 
         return "Data uploaded to MinIO"
 
+=======
+        # Download the data
+        url = "https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty_store_transactions.csv"
+        response = requests.get(url)
+        data = response.content
+        
+        # Upload to MinIO
+        s3_hook = S3Hook(aws_conn_id='minio_conn')
+        s3_hook.load_bytes(
+            bytes_data=data,
+            key='raw/dirty_store_transactions.csv',
+            bucket_name='dataops-bronze',
+            replace=True
+        )
+        return "Data uploaded to MinIO"
+    
+    upload_data = PythonOperator(
+        task_id='upload_data_to_minio',
+        python_callable=download_and_upload_to_minio,
+    )
+>>>>>>> 812715ed98f6a99a4d414151413f743b30878ae6
     
     # 4. Download PostgreSQL driver on Spark client container
     setup_spark_client = SSHOperator(
