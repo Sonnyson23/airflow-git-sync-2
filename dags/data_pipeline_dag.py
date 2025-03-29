@@ -20,7 +20,7 @@ with DAG(
     'store_data_pipeline',
     default_args=default_args,
     description='ETL pipeline for store transactions data',
-    schedule_interval=None,  # Triggered manually or through CI/CD
+    schedule=None,  # Triggered manually or through CI/CD
     start_date=datetime(2023, 1, 1),
     catchup=False,
     tags=['dataops'],
@@ -29,7 +29,7 @@ with DAG(
     # 1. Create traindb database in Postgres
     create_database = PostgresOperator(
         task_id='create_traindb_database',
-        postgres_conn_id= postgresql_conn,
+        postgres_conn_id= 'postgresql_conn',
         sql="SELECT 'CREATE DATABASE traindb' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'traindb');",
         autocommit=True
     )
@@ -37,7 +37,7 @@ with DAG(
     # 2. Create table in PostgreSQL
     create_table = PostgresOperator(
         task_id='create_postgres_table',
-        postgres_conn_id= postgresql_conn,
+        postgres_conn_id= 'postgresql_conn',
         sql="""
         CREATE TABLE IF NOT EXISTS public.clean_data_transactions (
             transaction_id VARCHAR(255),
