@@ -3,6 +3,11 @@ from airflow import DAG
 from airflow.providers.ssh.operators.ssh import SSHOperator
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_date, when, trim, regexp_replace, round
+from pyspark.sql.types import IntegerType, FloatType
+from airflow.models import Variable
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 import requests
 import boto3
 
