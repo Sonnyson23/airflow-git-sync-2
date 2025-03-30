@@ -104,7 +104,7 @@ with DAG(
 
     pip install pandas pyspark boto3
 
-    cat << 'EOL' > /tmp/dataops/scripts/data_cleaning.py
+    cat << 'EOL' > /tmp/dataops/scripts/data_cleaning_2.py
     from pyspark.sql import SparkSession
     from pyspark.sql.functions import col, to_date, when, trim
 
