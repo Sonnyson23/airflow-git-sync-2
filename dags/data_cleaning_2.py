@@ -1,9 +1,8 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, to_date, when, trim, regexp_replace, round
-from pyspark.sql.types import StringType, IntegerType, FloatType, DateType
+from pyspark.sql.types import IntegerType, FloatType
 
 def clean_data():
-    # Start Spark session
     spark = SparkSession.builder \
         .appName("Data Cleaning") \
         .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \
@@ -15,31 +14,29 @@ def clean_data():
         .getOrCreate()
 
     try:
-        # Load dataset
         df = spark.read.csv(
             "s3a://dataops-bronze/raw/dirty_store_transactions.csv",
             header=True,
             inferSchema=False
         )
 
-        # Drop duplicates
         df = df.dropDuplicates()
 
-        # Remove special characters from categorical columns
+        # Clean categorical/text columns
         df = df.withColumn("STORE_ID", regexp_replace(col("STORE_ID"), r"[^a-zA-Z0-9]", "")) \
                .withColumn("STORE_LOCATION", regexp_replace(col("STORE_LOCATION"), r"[^a-zA-Z0-9 ]", "")) \
                .withColumn("PRODUCT_CATEGORY", regexp_replace(col("PRODUCT_CATEGORY"), r"[^a-zA-Z0-9 ]", "")) \
                .withColumn("PRODUCT_ID", regexp_replace(col("PRODUCT_ID"), r"[^0-9]", ""))
 
-        # Clean currency fields (remove $ and ,) and cast to float
+        # Clean and cast monetary columns
         for c in ["MRP", "CP", "DISCOUNT", "SP"]:
             df = df.withColumn(c, round(regexp_replace(col(c), r"[$,]", "").cast("float"), 2))
 
-        # Trim all columns
+        # Trim all fields
         for column in df.columns:
             df = df.withColumn(column, trim(col(column)))
 
-        # Cast to correct types and parse date
+        # Cast types
         df = df.withColumn("PRODUCT_ID", col("PRODUCT_ID").cast(IntegerType())) \
                .withColumn("MRP", col("MRP").cast(FloatType())) \
                .withColumn("CP", col("CP").cast(FloatType())) \
@@ -47,17 +44,15 @@ def clean_data():
                .withColumn("SP", col("SP").cast(FloatType())) \
                .withColumn("Date", to_date(col("Date"), "MM/dd/yyyy"))
 
-        # Fill nulls
+        # Fill nulls if needed
         df = df.withColumn("DISCOUNT", when(col("DISCOUNT").isNull(), 0.0).otherwise(col("DISCOUNT"))) \
                .withColumn("SP", when(col("SP").isNull(), col("MRP") - col("DISCOUNT")).otherwise(col("SP")))
 
-        print("Final cleaned schema:")
+        print("Schema after cleaning:")
         df.printSchema()
-        print(f"Cleaned row count: {df.count()}")
+        print("Cleaned row count:", df.count())
 
-        # Save cleaned data to PostgreSQL
         jdbc_url = "jdbc:postgresql://postgres:5432/traindb"
-
         df.write \
             .format("jdbc") \
             .option("url", jdbc_url) \
@@ -68,10 +63,10 @@ def clean_data():
             .mode("overwrite") \
             .save()
 
-        print("Cleaned data successfully written to PostgreSQL.")
+        print("✅ Data successfully saved to PostgreSQL.")
 
     except Exception as e:
-        print(f"Error occurred: {str(e)}")
+        print("❌ Error:", str(e))
     finally:
         spark.stop()
 
