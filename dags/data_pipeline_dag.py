@@ -55,6 +55,9 @@ with DAG(
     
     # 3. Download data and upload to MinIO
     def download_and_upload_to_minio():
+        import boto3
+        import requests
+
         # Download data
         url = "https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty_store_transactions.csv"
         response = requests.get(url)
