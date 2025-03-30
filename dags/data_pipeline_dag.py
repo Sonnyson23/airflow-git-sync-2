@@ -155,7 +155,7 @@ if __name__ == "__main__":
     clean_data()
 EOL
 
-        python3 /dataops/scripts/data_cleaning.py
+        python3 /dataops/scripts/data_cleaning_2.py
         """,
     )
 
