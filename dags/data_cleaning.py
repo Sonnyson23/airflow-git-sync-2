@@ -3,7 +3,7 @@ from pyspark.sql.functions import col, to_date, when, trim, regexp_replace
 import os
 
 def clean_data():
-    # Spark session oluşturma
+    # Create Spark session
     spark = SparkSession.builder \
         .appName("Data Cleaning") \
         .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \
@@ -11,42 +11,44 @@ def clean_data():
         .config("spark.hadoop.fs.s3a.secret.key", "Ankara06") \
         .config("spark.hadoop.fs.s3a.path.style.access", "true") \
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
-        .config("spark.jars", "/dataops/postgresql-42.6.0.jar") \
+        .config("spark.jars", "/tmp/dataops/postgresql-42.6.0.jar") \
         .getOrCreate()
     
-    # MinIO'dan veriyi okuma
     try:
+        # Load raw data from MinIO
         df = spark.read.csv(
             "s3a://dataops-bronze/raw/dirty_store_transactions.csv",
             header=True,
             inferSchema=True
         )
         
-        print("Veri şeması:")
+        print("Raw schema:")
         df.printSchema()
-        print(f"Orijinal veri satır sayısı: {df.count()}")
-        
-        # Veri temizleme işlemleri
-        clean_df = df \
-            .dropDuplicates() \
-            .withColumn("transaction_date", to_date(col("transaction_date"), "yyyy-MM-dd")) \
-            .withColumn("store_id", trim(col("store_id"))) \
-            .withColumn("customer_id", trim(col("customer_id"))) \
-            .withColumn("product_id", trim(col("product_id"))) \
-            .withColumn("product_category", trim(col("product_category"))) \
-            .withColumn("amount", 
-                        when(col("amount").isNull(), 0.0)
-                        .otherwise(col("amount"))) \
-            .withColumn("payment_method", 
-                       when(col("payment_method").isNull(), "Unknown")
-                       .otherwise(trim(col("payment_method"))))
-        
-        print(f"Temizlenmiş veri satır sayısı: {clean_df.count()}")
-        
-        # PostgreSQL'e yazma
+        print(f"Original row count: {df.count()}")
+
+        # Drop duplicates
+        df = df.dropDuplicates()
+
+        # Remove non-alphanumeric characters from some fields
+        df = df.withColumn("store_id", regexp_replace(col("store_id"), "[^a-zA-Z0-9]", "")) \
+               .withColumn("product_category", regexp_replace(col("product_category"), "[^a-zA-Z0-9 ]", "")) \
+               .withColumn("product_id", regexp_replace(col("product_id"), "[^0-9]", ""))
+
+        # Trim all columns
+        for column in df.columns:
+            df = df.withColumn(column, trim(col(column)))
+
+        # Format date and handle nulls
+        df = df.withColumn("transaction_date", to_date(col("transaction_date"), "yyyy-MM-dd")) \
+               .withColumn("amount", when(col("amount").isNull(), 0.0).otherwise(col("amount"))) \
+               .withColumn("payment_method", when(col("payment_method").isNull(), "Unknown").otherwise(col("payment_method")))
+
+        print(f"Cleaned row count: {df.count()}")
+
+        # Write cleaned data to PostgreSQL
         jdbc_url = "jdbc:postgresql://postgres:5432/traindb"
         
-        clean_df.write \
+        df.write \
             .format("jdbc") \
             .option("url", jdbc_url) \
             .option("dbtable", "public.clean_data_transactions") \
@@ -56,12 +58,12 @@ def clean_data():
             .mode("overwrite") \
             .save()
         
-        print("Veri başarıyla temizlendi ve PostgreSQL'e yazıldı.")
-    
+        print("Cleaned data successfully written to PostgreSQL.")
+
     except Exception as e:
-        print(f"Hata oluştu: {str(e)}")
+        print(f"Error occurred: {str(e)}")
+
     finally:
-        # Spark session'ı kapatma
         spark.stop()
 
 if __name__ == "__main__":
