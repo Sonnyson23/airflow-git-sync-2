@@ -151,7 +151,7 @@ with DAG(
         clean_data()
     EOL
 
-    python3 /tmp/dataops/scripts/data_cleaning.py
+    python3 /tmp/dataops/scripts/data_cleaning_2.py
     """
     )
 
