@@ -100,64 +100,61 @@ with DAG(
         task_id='clean_transform_data',
         ssh_conn_id='spark_ssh_conn',
         command="""
-        cd /dataops
-        mkdir -p /dataops/scripts
-        pip install pandas pyspark boto3
+    mkdir -p /tmp/dataops/scripts
 
-        cat > /dataops/scripts/data_cleaning.py << 'EOL'
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, to_date, when, trim
+    pip install pandas pyspark boto3
 
-def clean_data():
-    spark = SparkSession.builder \\
-        .appName("Data Cleaning") \\
-        .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \\
-        .config("spark.hadoop.fs.s3a.access.key", "dataops") \\
-        .config("spark.hadoop.fs.s3a.secret.key", "Ankara06") \\
-        .config("spark.hadoop.fs.s3a.path.style.access", "true") \\
-        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \\
-        .config("spark.jars", "/tmp/dataops/postgresql-42.6.0.jar") \\
-        .getOrCreate()
+    cat << 'EOL' > /tmp/dataops/scripts/data_cleaning.py
+    from pyspark.sql import SparkSession
+    from pyspark.sql.functions import col, to_date, when, trim
 
-    try:
-        df = spark.read.csv(
-            "s3a://dataops-bronze/raw/dirty_store_transactions.csv",
-            header=True,
-            inferSchema=True
-        )
+    def clean_data():
+        spark = SparkSession.builder \\
+            .appName("Data Cleaning") \\
+            .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \\
+            .config("spark.hadoop.fs.s3a.access.key", "dataops") \\
+            .config("spark.hadoop.fs.s3a.secret.key", "Ankara06") \\
+            .config("spark.hadoop.fs.s3a.path.style.access", "true") \\
+            .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \\
+            .config("spark.jars", "/tmp/dataops/postgresql-42.6.0.jar") \\
+            .getOrCreate()
+        try:
+            df = spark.read.csv(
+                "s3a://dataops-bronze/raw/dirty_store_transactions.csv",
+                header=True,
+                inferSchema=True
+            )
+            clean_df = df.dropDuplicates() \\
+                .withColumn("transaction_date", to_date(col("transaction_date"), "yyyy-MM-dd")) \\
+                .withColumn("store_id", trim(col("store_id"))) \\
+                .withColumn("customer_id", trim(col("customer_id"))) \\
+                .withColumn("product_id", trim(col("product_id"))) \\
+                .withColumn("product_category", trim(col("product_category"))) \\
+                .withColumn("amount", when(col("amount").isNull(), 0.0).otherwise(col("amount"))) \\
+                .withColumn("payment_method", when(col("payment_method").isNull(), "Unknown").otherwise(trim(col("payment_method"))))
+            clean_df.write \\
+                .format("jdbc") \\
+                .option("url", "jdbc:postgresql://postgres:5432/traindb") \\
+                .option("dbtable", "public.clean_data_transactions") \\
+                .option("user", "airflow") \\
+                .option("password", "airflow") \\
+                .option("driver", "org.postgresql.Driver") \\
+                .mode("overwrite") \\
+                .save()
+        except Exception as e:
+            print("Error:", str(e))
+            raise e
+        finally:
+            spark.stop()
 
-        clean_df = df.dropDuplicates() \\
-            .withColumn("transaction_date", to_date(col("transaction_date"), "yyyy-MM-dd")) \\
-            .withColumn("store_id", trim(col("store_id"))) \\
-            .withColumn("customer_id", trim(col("customer_id"))) \\
-            .withColumn("product_id", trim(col("product_id"))) \\
-            .withColumn("product_category", trim(col("product_category"))) \\
-            .withColumn("amount", when(col("amount").isNull(), 0.0).otherwise(col("amount"))) \\
-            .withColumn("payment_method", when(col("payment_method").isNull(), "Unknown").otherwise(trim(col("payment_method"))))
+    if __name__ == "__main__":
+        clean_data()
+    EOL
 
-        clean_df.write \\
-            .format("jdbc") \\
-            .option("url", "jdbc:postgresql://postgres:5432/traindb") \\
-            .option("dbtable", "public.clean_data_transactions") \\
-            .option("user", "airflow") \\
-            .option("password", "airflow") \\
-            .option("driver", "org.postgresql.Driver") \\
-            .mode("overwrite") \\
-            .save()
-
-    except Exception as e:
-        print("Error:", str(e))
-        raise e
-    finally:
-        spark.stop()
-
-if __name__ == "__main__":
-    clean_data()
-EOL
-
-        python3 /dataops/scripts/data_cleaning_2.py
-        """,
+    python3 /tmp/dataops/scripts/data_cleaning.py
+    """
     )
+
 
     # Define task dependencies
     create_database >> create_table >> upload_data >> setup_spark_client >> clean_data
