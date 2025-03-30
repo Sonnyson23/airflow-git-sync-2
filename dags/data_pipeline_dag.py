@@ -87,10 +87,10 @@ with DAG(
         task_id='setup_spark_client',
         ssh_conn_id='spark_ssh_conn',
         command="""
-        sudo mkdir -p /dataops
-        cd /dataops
+        mkdir -p /tmp/dataops
+        cd /tmp/dataops
         if [ ! -f postgresql-42.6.0.jar ]; then
-            sudo wget https://jdbc.postgresql.org/download/postgresql-42.6.0.jar
+            wget https://jdbc.postgresql.org/download/postgresql-42.6.0.jar
         fi
         """,
     )
@@ -116,7 +116,7 @@ def clean_data():
         .config("spark.hadoop.fs.s3a.secret.key", "Ankara06") \\
         .config("spark.hadoop.fs.s3a.path.style.access", "true") \\
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \\
-        .config("spark.jars", "/dataops/postgresql-42.6.0.jar") \\
+        .config("spark.jars", "/tmp/dataops/postgresql-42.6.0.jar") \\
         .getOrCreate()
 
     try:
