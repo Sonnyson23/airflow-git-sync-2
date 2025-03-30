@@ -99,89 +99,87 @@ with DAG(
     )
 
     # 5. Clean and transform data using PySpark on remote container
-    clean_transform_task = SSHOperator(
-        task_id='clean_transform_data',
-        ssh_conn_id='spark_ssh_conn',
-        command="""
-            mkdir -p /tmp/dataops/scripts
-            pip install pandas pyspark boto3
-            cat << 'EOL' > /tmp/dataops/scripts/data_cleaning_2.py
-            from pyspark.sql import SparkSession
-            from pyspark.sql.functions import col, to_date, when, trim, regexp_replace, round
-            from pyspark.sql.types import IntegerType, FloatType
+    clean_transform_data = SSHOperator(
+    task_id='clean_transform_data',
+    ssh_conn_id='spark_ssh_conn',
+    command="""
+    mkdir -p /tmp/dataops/scripts
+    pip install pandas pyspark boto3
 
-            def clean_data():
-                spark = SparkSession.builder \
-                    .appName("Data Cleaning") \
-                    .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \
-                    .config("spark.hadoop.fs.s3a.access.key", "dataops") \
-                    .config("spark.hadoop.fs.s3a.secret.key", "Ankara06") \
-                    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
-                    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
-                    .config("spark.jars", "/tmp/dataops/postgresql-42.6.0.jar") \
-                    .getOrCreate()
+    cat << 'EOF' > /tmp/dataops/scripts/data_cleaning_2.py
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_date, when, trim, regexp_replace, round
+from pyspark.sql.types import IntegerType, FloatType
 
-                try:
-                    df = spark.read.csv("s3a://dataops-bronze/raw/dirty_store_transactions.csv", header=True, inferSchema=False)
+def clean_data():
+    spark = SparkSession.builder \\
+        .appName("Data Cleaning") \\
+        .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \\
+        .config("spark.hadoop.fs.s3a.access.key", "dataops") \\
+        .config("spark.hadoop.fs.s3a.secret.key", "Ankara06") \\
+        .config("spark.hadoop.fs.s3a.path.style.access", "true") \\
+        .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \\
+        .config("spark.jars", "/tmp/dataops/postgresql-42.6.0.jar") \\
+        .getOrCreate()
 
-                    df = df.dropDuplicates()
+    try:
+        df = spark.read.csv("s3a://dataops-bronze/raw/dirty_store_transactions.csv", header=True, inferSchema=False)
 
-                    # Clean categorical/text columns
-                    df = df.withColumn("STORE_ID", regexp_replace(col("STORE_ID"), r"[^a-zA-Z0-9]", "")) \
-                        .withColumn("STORE_LOCATION", regexp_replace(col("STORE_LOCATION"), r"[^a-zA-Z0-9 ]", "")) \
-                        .withColumn("PRODUCT_CATEGORY", regexp_replace(col("PRODUCT_CATEGORY"), r"[^a-zA-Z0-9 ]", "")) \
-                        .withColumn("PRODUCT_ID", regexp_replace(col("PRODUCT_ID"), r"[^0-9]", ""))
+        df = df.dropDuplicates()
 
-                    # Clean and cast monetary columns
-                    for c in ["MRP", "CP", "DISCOUNT", "SP"]:
-                        df = df.withColumn(c, round(regexp_replace(col(c), r"[$,]", "").cast("float"), 2))
+        df = df.withColumn("STORE_ID", regexp_replace(col("STORE_ID"), r"[^a-zA-Z0-9]", "")) \\
+               .withColumn("STORE_LOCATION", regexp_replace(col("STORE_LOCATION"), r"[^a-zA-Z0-9 ]", "")) \\
+               .withColumn("PRODUCT_CATEGORY", regexp_replace(col("PRODUCT_CATEGORY"), r"[^a-zA-Z0-9 ]", "")) \\
+               .withColumn("PRODUCT_ID", regexp_replace(col("PRODUCT_ID"), r"[^0-9]", ""))
 
-                    # Trim all fields
-                    for column in df.columns:
-                        df = df.withColumn(column, trim(col(column)))
+        for c in ["MRP", "CP", "DISCOUNT", "SP"]:
+            df = df.withColumn(c, round(regexp_replace(col(c), r"[$,]", "").cast("float"), 2))
 
-                    # Cast types
-                    df = df.withColumn("PRODUCT_ID", col("PRODUCT_ID").cast(IntegerType())) \
-                        .withColumn("MRP", col("MRP").cast(FloatType())) \
-                        .withColumn("CP", col("CP").cast(FloatType())) \
-                        .withColumn("DISCOUNT", col("DISCOUNT").cast(FloatType())) \
-                        .withColumn("SP", col("SP").cast(FloatType())) \
-                        .withColumn("Date", to_date(col("Date"), "MM/dd/yyyy"))
+        for column in df.columns:
+            df = df.withColumn(column, trim(col(column)))
 
-                    # Fill nulls if needed
-                    df = df.withColumn("DISCOUNT", when(col("DISCOUNT").isNull(), 0.0).otherwise(col("DISCOUNT"))) \
-                        .withColumn("SP", when(col("SP").isNull(), col("MRP") - col("DISCOUNT")).otherwise(col("SP")))
+        df = df.withColumn("PRODUCT_ID", col("PRODUCT_ID").cast(IntegerType())) \\
+               .withColumn("MRP", col("MRP").cast(FloatType())) \\
+               .withColumn("CP", col("CP").cast(FloatType())) \\
+               .withColumn("DISCOUNT", col("DISCOUNT").cast(FloatType())) \\
+               .withColumn("SP", col("SP").cast(FloatType())) \\
+               .withColumn("Date", to_date(col("Date"), "MM/dd/yyyy"))
 
-                    print("Schema after cleaning:")
-                    df.printSchema()
-                    print("Cleaned row count:", df.count())
+        df = df.withColumn("DISCOUNT", when(col("DISCOUNT").isNull(), 0.0).otherwise(col("DISCOUNT"))) \\
+               .withColumn("SP", when(col("SP").isNull(), col("MRP") - col("DISCOUNT")).otherwise(col("SP")))
 
-                    jdbc_url = "jdbc:postgresql://postgres:5432/traindb"
-                    df.write \
-                        .format("jdbc") \
-                        .option("url", "jdbc:postgresql://postgres:5432/traindb") \
-                        .option("dbtable", "public.clean_data_transactions") \
-                        .option("user", "airflow") \
-                        .option("password", "airflow") \
-                        .option("driver", "org.postgresql.Driver") \
-                        .mode("overwrite") \
-                        .save()
-                except Exception as e:
-                    print(str(e))
-                finally:
-                    spark.stop()
+        # Rename columns to lowercase to match PostgreSQL schema
+        df = df.toDF(*[c.lower() for c in df.columns])
 
-            if __name__ == "__main__":
-                clean_data()
-            EOL
+        print("Final schema:")
+        df.printSchema()
+        print("Row count:", df.count())
 
-            python3 /tmp/dataops/scripts/data_cleaning_2.py
-        """,
-        dag=dag
-    )
-    
+        df.write \\
+            .format("jdbc") \\
+            .option("url", "jdbc:postgresql://postgres:5432/traindb") \\
+            .option("dbtable", "public.clean_data_transactions") \\
+            .option("user", "airflow") \\
+            .option("password", "airflow") \\
+            .option("driver", "org.postgresql.Driver") \\
+            .mode("overwrite") \\
+            .save()
+
+    except Exception as e:
+        print("❌ Error:", str(e))
+    finally:
+        spark.stop()
+
+if __name__ == "__main__":
+    clean_data()
+EOF
+
+    python3 /tmp/dataops/scripts/data_cleaning_2.py
+    """,
+)    
     # Define task dependencies
-    create_database >> create_table >> upload_data >> setup_spark_client >> clean_transform_task
+    create_database >> create_table >> upload_data >> setup_spark_client >> clean_transform_data
+    
     # Note: The SSH connection ID 'spark_ssh_conn' should be defined in Airflow connections
     # and should point to the remote Spark container.
     # The PostgreSQL connection ID 'postgresql_conn' should also be defined in Airflow connections.
