@@ -5,6 +5,7 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 import requests
+import boto3
 import io
 
 default_args = {
@@ -54,25 +55,35 @@ with DAG(
     
     # 3. Download data and upload to MinIO
     def download_and_upload_to_minio():
-        # Download the data
+        import boto3
+        import requests
+
+        # Download data
         url = "https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty_store_transactions.csv"
         response = requests.get(url)
         data = response.content
-        
-        # Upload to MinIO
-        s3_hook = S3Hook(aws_conn_id='minio_conn')
-        s3_hook.load_bytes(
-            bytes_data=data,
-            key='raw/dirty_store_transactions.csv',
-            bucket_name='dataops-bronze',
-            replace=True
+
+        # Connect to MinIO
+        s3 = boto3.client(
+            's3',
+            endpoint_url='http://minio:9000',
+            aws_access_key_id='dataopsadmin',
+            aws_secret_access_key='dataopsadmin'
         )
+
+        bucket_name = 'dataops-bronze'
+        key = 'raw/dirty_store_transactions.csv'
+
+        # Create bucket if not exists
+        existing_buckets = [b['Name'] for b in s3.list_buckets()['Buckets']]
+        if bucket_name not in existing_buckets:
+            s3.create_bucket(Bucket=bucket_name)
+
+        # Upload file
+        s3.put_object(Bucket=bucket_name, Key=key, Body=data)
+
         return "Data uploaded to MinIO"
-    
-    upload_data = PythonOperator(
-        task_id='upload_data_to_minio',
-        python_callable=download_and_upload_to_minio,
-    )
+
     
     # 4. Download PostgreSQL driver on Spark client container
     setup_spark_client = SSHOperator(
