@@ -183,3 +183,6 @@ with DAG(
     # Define task dependencies
     create_database >> create_table >> upload_data >> setup_spark_client >> clean_transform_task
     # Note: The SSH connection ID 'spark_ssh_conn' should be defined in Airflow connections
+    # and should point to the remote Spark container.
+    # The PostgreSQL connection ID 'postgresql_conn' should also be defined in Airflow connections.
+    # This DAG assumes that the PostgreSQL server is accessible from the Spark container.
