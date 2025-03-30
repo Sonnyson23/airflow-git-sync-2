@@ -87,10 +87,10 @@ with DAG(
         task_id='setup_spark_client',
         ssh_conn_id='spark_ssh_conn',
         command="""
-        mkdir -p /dataops
+        sudo mkdir -p /dataops
         cd /dataops
         if [ ! -f postgresql-42.6.0.jar ]; then
-            wget https://jdbc.postgresql.org/download/postgresql-42.6.0.jar
+            sudo wget https://jdbc.postgresql.org/download/postgresql-42.6.0.jar
         fi
         """,
     )
