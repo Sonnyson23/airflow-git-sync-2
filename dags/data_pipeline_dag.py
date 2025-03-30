@@ -181,5 +181,5 @@ with DAG(
 )
     
     # Define task dependencies
-    create_database >> create_table >> upload_data >> setup_spark_client >> clean_data
+    create_database >> create_table >> upload_data >> setup_spark_client >> clean_transform_task
     # Note: The SSH connection ID 'spark_ssh_conn' should be defined in Airflow connections
