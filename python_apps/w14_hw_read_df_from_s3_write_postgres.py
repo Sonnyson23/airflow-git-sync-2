@@ -61,14 +61,15 @@ for column in df.columns:
 
 # 5. Cast columns to appropriate data types
 df['STORE_ID'] = df['STORE_ID'].astype(str)
-df['STORE_LOCATION'] = df['STORE_LOCATION'].astype(str)
-df['PRODUCT_CATEGORY'] = df['PRODUCT_CATEGORY'].astype(str)
-df['PRODUCT_ID'] = pd.to_numeric(df['PRODUCT_ID'], errors='coerce').astype('Int64') # 'coerce' handles errors by turning invalid values to NaN
-df['MRP'] = df['MRP'].astype(float)
-df['CP'] = df['CP'].astype(float)
-df['DISCOUNT'] = df['DISCOUNT'].astype(float)
-df['SP'] = df['SP'].astype(float)
-df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Assuming the date format is year-month-day
+
+# Temizleme ve dönüştürme işlemleri
+df['STORE_LOCATION'] = df['STORE_LOCATION'].str.replace(r'[^a-zA-Z0-9 ]', '', regex=True).astype(str)
+df['PRODUCT_CATEGORY'] = df['PRODUCT_CATEGORY'].str.replace(r'[^a-zA-Z0-9 ]', '', regex=True).astype(str)
+df['PRODUCT_ID'] = df['PRODUCT_ID'].str.replace(r'[^0-9]', '', regex=True).astype(str)
+df['MRP'] = df['MRP'].str.replace(r'[$,]', '', regex=True).astype(float)
+df['CP'] = df['CP'].str.replace(r'[$,]', '', regex=True).astype(float)
+df['DISCOUNT'] = df['DISCOUNT'].str.replace(r'[$,]', '', regex=True).astype(float)
+df['SP'] = df['SP'].str.replace(r'[$,]', '', regex=True).astype(float)
 
 # Write pandas dataframe to postgresql table
 df.to_sql('clean_data_transactions', con=engine, if_exists='replace')
