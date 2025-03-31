@@ -12,7 +12,7 @@ ap.add_argument("-aki", "--aws_access_key_id", required=True, type=str, default=
                     help="aws_access_key_id. Default: dataops")
 ap.add_argument("-sak", "--aws_secret_access_key", required=True, type=str, default='Ankara06',
                     help="aws_secret_access_key. Default: Ankara06")
-ap.add_argument("-sfu", "--source_file_url", required=True, type=str, default='https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty\_store\_transactions.csv'
+ap.add_argument("-sfu", "--source_file_url", required=True, type=str, default='https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty\_store\_transactions.csv',
                     help="source_file_url. Default: https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty\_store\_transactions.csv")
 
 args = vars(ap.parse_args())
