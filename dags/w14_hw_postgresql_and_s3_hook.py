@@ -21,7 +21,7 @@ source_file_url = "https://github.com/erkansirin78/datasets/raw/master/Churn_Mod
 ssh_train_password = Variable.get("ssh_train_password")
 
 
-with DAG('s3_to_postgres_dag', default_args=default_args, schedule_interval='@once', catchup=False) as dag:
+with DAG('w14_hw_s3_to_postgres_dag', default_args=default_args, schedule_interval='@once', catchup=False) as dag:
     
     t0 = BashOperator(
     task_id="scp_python_scrips",
