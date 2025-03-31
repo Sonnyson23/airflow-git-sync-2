@@ -70,6 +70,7 @@ df['MRP'] = df['MRP'].str.replace(r'[$,]', '', regex=True).astype(float)
 df['CP'] = df['CP'].str.replace(r'[$,]', '', regex=True).astype(float)
 df['DISCOUNT'] = df['DISCOUNT'].str.replace(r'[$,]', '', regex=True).astype(float)
 df['SP'] = df['SP'].str.replace(r'[$,]', '', regex=True).astype(float)
+df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Assuming the date format is year-month-day
 
 # Write pandas dataframe to postgresql table
 df.to_sql('clean_data_transactions', con=engine, if_exists='replace')
