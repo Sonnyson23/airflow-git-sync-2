@@ -5,8 +5,6 @@ import pandas as pd
 import boto3, logging, botocore
 from botocore.config import Config
 import io
-import argparse
-import os
 
 def get_s3_client():
     s3 = boto3.client('s3',
@@ -39,7 +37,9 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
 # Read csv file from minio and create pandas dataframe
 df = load_df_from_s3(bucket='dataops-bronze', key='raw/dirty_store_transactions.csv', s3=s3)
 print(df.head())
+
 # Do the necessary operations like transformation, join, clean and filter.
+
 # 1. Remove special characters from string columns
 df['STORE_ID'] = df['STORE_ID'].str.replace(r'[^a-zA-Z0-9]', '', regex=True)
 df['STORE_LOCATION'] = df['STORE_LOCATION'].str.replace(r'[^a-zA-Z0-9 ]', '', regex=True)
@@ -55,22 +55,20 @@ for col_name in currency_columns:
 
 # 4. Remove leading/trailing whitespaces from all columns
 for column in df.columns:
-    # Check if the column is of object type (string) before applying str.strip()
     if df[column].dtype == 'object':
         df[column] = df[column].str.strip()
 
 # 5. Cast columns to appropriate data types
 df['STORE_ID'] = df['STORE_ID'].astype(str)
-
-# Temizleme ve dönüştürme işlemleri
-df['STORE_LOCATION'] = df['STORE_LOCATION'].str.replace(r'[^a-zA-Z0-9 ]', '', regex=True).astype(str)
-df['PRODUCT_CATEGORY'] = df['PRODUCT_CATEGORY'].str.replace(r'[^a-zA-Z0-9 ]', '', regex=True).astype(str)
-df['PRODUCT_ID'] = df['PRODUCT_ID'].str.replace(r'[^0-9]', '', regex=True).astype(str)
-df['MRP'] = df['MRP'].str.replace(r'[$,]', '', regex=True).astype(float)
-df['CP'] = df['CP'].str.replace(r'[$,]', '', regex=True).astype(float)
-df['DISCOUNT'] = df['DISCOUNT'].str.replace(r'[$,]', '', regex=True).astype(float)
-df['SP'] = df['SP'].str.replace(r'[$,]', '', regex=True).astype(float)
+df['STORE_LOCATION'] = df['STORE_LOCATION'].astype(str)
+df['PRODUCT_CATEGORY'] = df['PRODUCT_CATEGORY'].astype(str)
+df['PRODUCT_ID'] = pd.to_numeric(df['PRODUCT_ID'], errors='coerce').astype('Int64')
+df['MRP'] = df['MRP'].astype(float)
+df['CP'] = df['CP'].astype(float)
+df['DISCOUNT'] = df['DISCOUNT'].astype(float)
+df['SP'] = df['SP'].astype(float)
 df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Assuming the date format is year-month-day
+
 
 # Write pandas dataframe to postgresql table
 df.to_sql('clean_data_transactions', con=engine, if_exists='replace')
