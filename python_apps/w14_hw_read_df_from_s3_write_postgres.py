@@ -73,3 +73,4 @@ df['SP'] = df['SP'].str.replace(r'[$,]', '', regex=True).astype(float)
 
 # Write pandas dataframe to postgresql table
 df.to_sql('clean_data_transactions', con=engine, if_exists='replace')
+print("Data written to PostgreSQL table successfully.")
