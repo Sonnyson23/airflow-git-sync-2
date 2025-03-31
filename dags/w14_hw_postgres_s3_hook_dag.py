@@ -17,7 +17,7 @@ default_args = {
 endpoint_url = Variable.get("endpoint_url")
 aws_access_key_id = Variable.get("aws_access_key_id")
 aws_secret_access_key = Variable.get("aws_secret_access_key")
-source_file_url = "https://github.com/erkansirin78/datasets/raw/master/Churn_Modelling.csv"
+source_file_url = "https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/dirty_store_transactions.csv"
 ssh_train_password = Variable.get("ssh_train_password")
 
 
