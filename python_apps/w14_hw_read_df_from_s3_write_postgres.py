@@ -71,14 +71,5 @@ df['CP'] = df['CP'].str.replace(r'[$,]', '', regex=True).astype(float)
 df['DISCOUNT'] = df['DISCOUNT'].str.replace(r'[$,]', '', regex=True).astype(float)
 df['SP'] = df['SP'].str.replace(r'[$,]', '', regex=True).astype(float)
 
-# Tarih dönüşümü ve ayıklama
-df['Date'] = pd.to_datetime(df['Date'], format='%m/%d/%Y', errors='coerce')  # Correct date format
-df['Day'] = df['Date'].dt.day.astype(int)
-df['Month'] = df['Date'].dt.month.astype(int)
-df['Year'] = df['Date'].dt.year.astype(int)
-
-# Orijinal Date sütununu sil
-df = df.drop(columns=['Date'])
-
 # Write pandas dataframe to postgresql table
 df.to_sql('clean_data_transactions', con=engine, if_exists='replace')

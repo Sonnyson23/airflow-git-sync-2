@@ -39,4 +39,4 @@ with DAG('w14_hw_s3_to_postgres_dag', default_args=default_args, schedule_interv
                     ssh_conn_id='spark_ssh_conn')
 
     t0 >> t1 >> t2
-    # 
+    
