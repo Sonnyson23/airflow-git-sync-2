@@ -68,7 +68,12 @@ df['MRP'] = df['MRP'].astype(float)
 df['CP'] = df['CP'].astype(float)
 df['DISCOUNT'] = df['DISCOUNT'].astype(float)
 df['SP'] = df['SP'].astype(float)
-df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Assuming the date format is year-month-day
+df['DATE'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Assuming the date format is year-month-day
+
+# Extract day, month, and year from 'Date' column
+df['Day'] = df['Date'].dt.day
+df['Month'] = df['Date'].dt.month
+df['Year'] = df['Date'].dt.year
 
 # 6. Drop original 'Date' column
 df = df.drop(columns=['Date'])
