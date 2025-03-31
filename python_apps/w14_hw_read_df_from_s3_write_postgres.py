@@ -68,9 +68,10 @@ df['MRP'] = df['MRP'].astype(float)
 df['CP'] = df['CP'].astype(float)
 df['DISCOUNT'] = df['DISCOUNT'].astype(float)
 df['SP'] = df['SP'].astype(float)
-df['Date_Casted'] = pd.to_datetime(df['Date_Casted'], format='%m/%d/%Y')  # Assuming the date format is month/day/year
+df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Assuming the date format is year-month-day
 
 # 6. Drop original 'Date' column
-df = df.drop(columns=['Date_Casted'])
+df = df.drop(columns=['Date'])
+
 # Write pandas dataframe to postgresql table
 df.to_sql('clean_data_transactions', con=engine, if_exists='replace')
