@@ -69,7 +69,7 @@ df['CP'] = df['CP'].astype(float)
 df['DISCOUNT'] = df['DISCOUNT'].astype(float)
 df['SP'] = df['SP'].astype(float)
 df['DATE'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')  # Assuming the date format is year-month-day
-
+print(df['Date'].dtype)
 # Extract day, month, and year from 'Date' column and cast to integer
 df['Day'] = df['Date'].dt.day.astype(int)
 df['Month'] = df['Date'].dt.month.astype(int)
